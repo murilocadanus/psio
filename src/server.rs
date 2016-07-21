@@ -7,6 +7,8 @@ use mio::util::Slab;
 
 use connection::Connection;
 
+static mut N: u32 = 0;
+
 pub struct Server {
     // main socket for our server
     sock: TcpListener,
@@ -177,6 +179,12 @@ impl Server {
                     match s {
                         Some((sock, _)) => sock,
                         None => {
+
+                            unsafe {
+                                N += 1;
+                                debug!("Message count: {}", N);
+                            }
+
                             debug!("accept encountered WouldBlock");
                             return;
                         }

@@ -9,6 +9,7 @@ use mio::*;
 use mio::tcp::*;
 
 use server::Server;
+use protocol::Protocol;
 
 /// A stateful wrapper around a non-blocking stream. This connection is not
 /// the SERVER connection. This connection represents the client connections
@@ -39,6 +40,9 @@ pub struct Connection {
     // track whether a write received `WouldBlock`
     write_continuation: bool,
 
+    // protocol used to parse data
+    protocol: Protocol,
+
 }
 
 impl Connection {
@@ -52,6 +56,7 @@ impl Connection {
             is_reset: false,
             read_continuation: None,
             write_continuation: false,
+            protocol: Protocol::new(),
         }
     }
 
@@ -97,6 +102,8 @@ impl Connection {
                 }
 
                 self.read_continuation = None;
+
+                self.protocol.decode_buffer(&recv_buf);
 
                 Ok(Some(recv_buf))
             },
