@@ -6,10 +6,11 @@ use mio::tcp::*;
 use mio::util::Slab;
 
 use connection::Connection;
+use protocol::Protocol;
 
 static mut N: u32 = 0;
 
-pub struct Server {
+pub struct Server<T> {
     // main socket for our server
     sock: TcpListener,
 
@@ -17,14 +18,16 @@ pub struct Server {
     token: Token,
 
     // a list of connections _accepted_ by our server
-    conns: Slab<Connection>,
+    conns: Slab<Connection<T>>,
+
+    protocol: &mut T
 }
 
-impl Handler for Server {
+impl<T:Protocol> Handler for Server<T> {
     type Timeout = ();
     type Message = ();
 
-    fn tick(&mut self, event_loop: &mut EventLoop<Server>) {
+    fn tick(&mut self, event_loop: &mut EventLoop<Server<T>>) {
         trace!("Handling end of tick");
 
         let mut reset_tokens = Vec::new();
@@ -54,7 +57,7 @@ impl Handler for Server {
         }
     }
 
-    fn ready(&mut self, event_loop: &mut EventLoop<Server>, token: Token, events: EventSet) {
+    fn ready(&mut self, event_loop: &mut EventLoop<Server<T>>, token: Token, events: EventSet) {
         debug!("{:?} events = {:?}", token, events);
         assert!(token != Token(0), "[BUG]: Received event for Server token {:?}", token);
 
@@ -117,8 +120,8 @@ impl Handler for Server {
     }
 }
 
-impl Server {
-    pub fn new(sock: TcpListener) -> Server {
+impl<T:Protocol> Server<T> {
+    pub fn new(sock: TcpListener, _protocol: &mut T) -> Server<T> {
         Server {
             sock: sock,
 
@@ -131,13 +134,15 @@ impl Server {
             // SERVER is Token(1), so start after that
             // we can deal with a max of 126 connections
             conns: Slab::new_starting_at(Token(2), 128),
+
+            protocol: _protocol
         }
     }
 
     /// Register Server with the event loop.
     ///
     /// This keeps the registration details neatly tucked away inside of our implementation.
-    pub fn register(&mut self, event_loop: &mut EventLoop<Server>) -> io::Result<()> {
+    pub fn register(&mut self, event_loop: &mut EventLoop<Server<T>>) -> io::Result<()> {
         event_loop.register(
             &self.sock,
             self.token,
@@ -168,7 +173,7 @@ impl Server {
     ///
     /// The server will keep track of the new connection and forward any events from the event loop
     /// to this connection.
-    fn accept(&mut self, event_loop: &mut EventLoop<Server>) {
+    fn accept(&mut self, event_loop: &mut EventLoop<Server<T>>) {
         debug!("server accepting new socket");
 
         loop {
@@ -198,7 +203,7 @@ impl Server {
 
             match self.conns.insert_with(|token| {
                 debug!("registering {:?} with event loop", token);
-                Connection::new(sock, token)
+                Connection::new(sock, token, protocol)
             }) {
                 Some(token) => {
                     // If we successfully insert, then register our connection.
@@ -243,7 +248,7 @@ impl Server {
     }
 
     /// Find a connection in the slab using the given token.
-    fn find_connection_by_token<'a>(&'a mut self, token: Token) -> &'a mut Connection {
+    fn find_connection_by_token<'a>(&'a mut self, token: Token) -> &'a mut Connection<T> {
         &mut self.conns[token]
     }
 }
