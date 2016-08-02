@@ -1,6 +1,10 @@
 [package]
 name = "psio"
 version = "0.1.0"
+<<<<<<< HEAD
+authors = ["Murilo Cadanus da Costa <murilo.costa.ext@sascar.com.br>"]
+=======
 authors = ["Murilo Cadanus da Costa <murilocadanus@gmail.com>"]
+>>>>>>> e1341a81a6a63427c971175e5db6777e44b0aa7b
 
 [dependencies]
