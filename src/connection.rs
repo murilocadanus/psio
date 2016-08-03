@@ -14,7 +14,7 @@ use protocol::Protocol;
 /// A stateful wrapper around a non-blocking stream. This connection is not
 /// the SERVER connection. This connection represents the client connections
 /// _accepted_ by the SERVER connection.
-pub struct Connection<T> {
+pub struct Connection {
 	// handle to the accepted socket
 	sock: TcpStream,
 
@@ -41,12 +41,12 @@ pub struct Connection<T> {
 	write_continuation: bool,
 
 	// protocol used to parse data
-	protocol: &mut T,
+	protocol: Protocol,
 
 }
 
-impl<T:Protocol> Connection<T> {
-	pub fn new(sock: TcpStream, token: Token, protocol: &mut T) -> Connection<T> {
+impl Connection {
+	pub fn new(sock: TcpStream, token: Token) -> Connection {
 		Connection {
 			sock: sock,
 			token: token,
@@ -56,7 +56,7 @@ impl<T:Protocol> Connection<T> {
 			is_reset: false,
 			read_continuation: None,
 			write_continuation: false,
-			protocol: protocol,
+			protocol: Protocol::new(),
 		}
 	}
 
@@ -241,7 +241,7 @@ impl<T:Protocol> Connection<T> {
 	/// Register interest in read events with the event_loop.
 	///
 	/// This will let our connection accept reads starting next event loop tick.
-	pub fn register(&mut self, event_loop: &mut EventLoop<Server<T>>) -> io::Result<()> {
+	pub fn register(&mut self, event_loop: &mut EventLoop<Server>) -> io::Result<()> {
 		trace!("connection register; token={:?}", self.token);
 
 		self.interest.insert(EventSet::readable());
@@ -261,7 +261,7 @@ impl<T:Protocol> Connection<T> {
 	}
 
 	/// Re-register interest in read events with the event_loop.
-	pub fn reregister(&mut self, event_loop: &mut EventLoop<Server<T>>) -> io::Result<()> {
+	pub fn reregister(&mut self, event_loop: &mut EventLoop<Server>) -> io::Result<()> {
 		trace!("connection reregister; token={:?}", self.token);
 
 		event_loop.reregister(
